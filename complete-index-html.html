@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  
+  <title>Simulatore SSM - Scuole di Specializzazione Medica</title>
+  <meta name="description" content="Simulatore completo per la preparazione al test SSM con migliaia di domande, modalità studio ed esame">
+  
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1e40af">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <link rel="apple-touch-icon" href="/icons/icon-152x152.png">
+  <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.png">
+  <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512x512.png">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="SSM Simulator">
+  
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <style>
+    body {
+      overscroll-behavior-y: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    
+    ::-webkit-scrollbar {
+      display: none;
+    }
+    
+    #install-banner {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to right, #1e40af, #3b82f6);
+      color: white;
+      padding: 1rem;
+      display: none;
+      z-index: 9999;
+      box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    
+    #install-banner.show {
+      display: block;
+      animation: slideUp 0.3s ease-out;
+    }
+    
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(to bottom right, #1e40af, #3b82f6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+    }
+    
+    .loader {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div class="text-center">
+      <div class="loader mx-auto mb-4"></div>
+      <p class="text-white text-lg font-semibold">Caricamento SSM Simulator...</p>
+    </div>
+  </div>
+
+  <div id="install-banner">
+    <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="text-3xl">📱</div>
+        <div>
+          <p class="font-bold">Installa SSM Simulator</p>
+          <p class="text-sm text-blue-100">Accedi rapidamente dalla tua home screen</p>
+        </div>
+      </div>
+      <div class="flex space-x-2">
+        <button id="install-button" class="bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors">
+          Installa
+        </button>
+        <button id="dismiss-button" class="bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-800 transition-colors">
+          Dopo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="root"></div>
+
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then((registration) => {
+            console.log('✅ Service Worker registrato:', registration.scope);
+            setInterval(() => {
+              registration.update();
+            }, 5 * 60 * 1000);
+          })
+          .catch((error) => {
+            console.log('❌ Registrazione Service Worker fallita:', error);
+          });
+      });
+    }
+
+    let deferredPrompt;
+    const installBanner = document.getElementById('install-banner');
+    const installButton = document.getElementById('install-button');
+    const dismissButton = document.getElementById('dismiss-button');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBanner.classList.add('show');
+    });
+
+    installButton.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response: ${outcome}`);
+      deferredPrompt = null;
+      installBanner.classList.remove('show');
+    });
+
+    dismissButton.addEventListener('click', () => {
+      installBanner.classList.remove('show');
+    });
+
+    window.addEventListener('appinstalled', () => {
+      installBanner.classList.remove('show');
+      console.log('✅ App installata con successo!');
+    });
+
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        document.getElementById('loading-screen').style.display = 'none';
+      }, 500);
+    });
+
+    document.addEventListener('gesturestart', function(e) {
+      e.preventDefault();
+    });
+  </script>
+
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+    
+    const SSMSimulator = () => {
+      const [view, setView] = useState('home');
+      const [questions, setQuestions] = useState([]);
+      const [currentQuestion, setCurrentQuestion] = useState(0);
+      const [selectedAnswer, setSelectedAnswer] = useState(null);
+      const [userAnswers, setUserAnswers] = useState([]);
+      const [mode, setMode] = useState('study');
+      const [timer, setTimer] = useState(0);
+      const [isRunning, setIsRunning] = useState(false);
+      const [showResult, setShowResult] = useState(false);
+      const [selectedCategories, setSelectedCategories] = useState([]);
+      const [numberOfQuestions, setNumberOfQuestions] = useState(10);
+      const [filteredQuestions, setFilteredQuestions] = useState([]);
+
+      const sampleQuestions = [
+        {
+          id: 1,
+          question: "Quale dei seguenti trattamenti è il più appropriato per una osteonecrosi idiopatica dell'anca in un paziente di 40 anni con dolore moderato e senza collasso della testa del femore?",
+          answers: [
+            "Osservazione",
+            "Decompressione centrale dell'anca con o senza una complementare terapia cellulare",
+            "Osteotomia rotazionale della testa del femore",
+            "Protesi d'anca",
+            "Artrodesi d'anca"
+          ],
+          correctAnswer: 1,
+          explanation: "In un paziente giovane con osteonecrosi dell'anca in fase precollasso, la decompressione centrale (core decompression) con eventuale terapia cellulare rappresenta il trattamento conservativo di scelta.",
+          category: "Ortopedia",
+          difficulty: "medio"
+        },
+        {
+          id: 2,
+          question: "Un paziente di 65 anni con fibrillazione atriale persistente presenta un CHA2DS2-VASc score di 4. Quale strategia terapeutica è più appropriata?",
+          answers: [
+            "Solo terapia antiaggregante con aspirina",
+            "Anticoagulante orale (warfarin o DOAC)",
+            "Duplice antiaggregazione",
+            "Nessuna terapia anticoagulante",
+            "Cardioversione elettrica immediata"
+          ],
+          correctAnswer: 1,
+          explanation: "Con un CHA2DS2-VASc score di 4, il paziente ha un rischio elevato di eventi tromboembolici. Le linee guida ESC raccomandano fortemente la terapia anticoagulante orale.",
+          category: "Cardiologia",
+          difficulty: "medio"
+        }
+      ];
+
+      useEffect(() => {
+        if (questions.length === 0) {
+          setQuestions(sampleQuestions);
+        }
+      }, []);
+
+      useEffect(() => {
+        let interval;
+        if (isRunning && view === 'quiz') {
+          interval = setInterval(() => {
+            setTimer(prev => prev + 1);
+          }, 1000);
+        }
+        return () => clearInterval(interval);
+      }, [isRunning, view]);
+
+      const formatTime = (seconds) => {
+        const hours = Math.floor(seconds / 3600);
+        const mins = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+      };
+
+      const startQuiz = (selectedMode) => {
+        setMode(selectedMode);
+        setView('setup');
+      };
+
+      const beginQuiz = () => {
+        let questionsToUse = questions;
+        if (selectedCategories.length > 0) {
+          questionsToUse = questions.filter(q => selectedCategories.includes(q.category));
+        }
+        
+        const shuffled = [...questionsToUse].sort(() => Math.random() - 0.5);
+        const selected = shuffled.slice(0, Math.min(numberOfQuestions, shuffled.length));
+        
+        if (selected.length === 0) {
+          alert('⚠️ Nessuna domanda disponibile con i filtri selezionati!');
+          return;
+        }
+        
+        setFilteredQuestions(selected);
+        setView('quiz');
+        setCurrentQuestion(0);
+        setUserAnswers([]);
+        setTimer(0);
+        setIsRunning(true);
+        setSelectedAnswer(null);
+        setShowResult(false);
+      };
+
+      const getAvailableCategories = () => {
+        const categories = [...new Set(questions.map(q => q.category))];
+        return categories.sort();
+      };
+
+      const toggleCategory = (category) => {
+        setSelectedCategories(prev => {
+          if (prev.includes(category)) {
+            return prev.filter(c => c !== category);
+          } else {
+            return [...prev, category];
+          }
+        });
+      };
+
+      const selectAllCategories = () => {
+        setSelectedCategories(getAvailableCategories());
+      };
+
+      const deselectAllCategories = () => {
+        setSelectedCategories([]);
+      };
+
+      const handleAnswer = (index) => {
+        setSelectedAnswer(index);
+      };
+
+      const confirmAnswer = () => {
+        if (selectedAnswer === null) return;
+
+        const newAnswers = [...userAnswers];
+        newAnswers[currentQuestion] = {
+          selected: selectedAnswer,
+          correct: filteredQuestions[currentQuestion].correctAnswer,
+          isCorrect: selectedAnswer === filteredQuestions[currentQuestion].correctAnswer
+        };
+        setUserAnswers(newAnswers);
+
+        if (mode === 'study') {
+          setShowResult(true);
+        } else {
+          nextQuestion();
+        }
+      };
+
+      const nextQuestion = () => {
+        if (currentQuestion < filteredQuestions.length - 1) {
+          setCurrentQuestion(currentQuestion + 1);
+          setSelectedAnswer(null);
+          setShowResult(false);
+        } else {
+          setIsRunning(false);
+          setView('results');
+        }
+      };
+
+      const prevQuestion = () => {
+        if (currentQuestion > 0) {
+          setCurrentQuestion(currentQuestion - 1);
+          setSelectedAnswer(userAnswers[currentQuestion - 1]?.selected || null);
+          setShowResult(false);
+        }
+      };
+
+      const cancelAnswer = () => {
+        setSelectedAnswer(null);
+      };
+
+      const goToSummary = () => {
+        setIsRunning(false);
+        setView('results');
+      };
+
+      const handleFileUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const data = JSON.parse(e.target.result);
+              setQuestions(data);
+              alert(`✅ ${data.length} domande caricate con successo!`);
+            } catch (error) {
+              alert('❌ Errore nel caricamento del file.');
+            }
+          };
+          reader.readAsText(file);
+        }
+      };
+
+      const calculateStats = () => {
+        const answered = userAnswers.filter(a => a).length;
+        const correct = userAnswers.filter(a => a?.isCorrect).length;
+        const wrong = answered - correct;
+        const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+        return { answered, correct, wrong, accuracy, total: questions.length };
+      };
+
+      // HOME VIEW
+      if (view === 'home') {
+        const stats = calculateStats();
+        
+        return React.createElement('div', { className: 'min-h-screen bg-gray-50' },
+          React.createElement('div', { className: 'bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 shadow-lg' },
+            React.createElement('div', { className: 'max-w-7xl mx-auto px-6 py-6' },
+              React.createElement('div', { className: 'flex items-center justify-between' },
+                React.createElement('div', { className: 'flex items-center space-x-4' },
+                  React.createElement('div', { className: 'w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center' },
+                    React.createElement('div', { className: 'text-2xl' }, '🧬')
+                  ),
+                  React.createElement('div', null,
+                    React.createElement('h1', { className: 'text-2xl font-bold text-white tracking-tight' }, 'SSM'),
+                    React.createElement('p', { className: 'text-blue-100 text-sm' }, 'Scuole di Specializzazione in Medicina')
+                  )
+                ),
+                React.createElement('div', { className: 'text-right text-white' },
+                  React.createElement('div', { className: 'text-sm text-blue-100' }, 'Simulatore Ufficiale'),
+                  React.createElement('div', { className: 'text-lg font-semibold' }, `${questions.length} Domande`)
+                )
+              )
+            )
+          ),
+          React.createElement('div', { className: 'max-w-7xl mx-auto px-6 py-8' },
+            React.createElement('div', { className: 'grid grid-cols-1 md:grid-cols-2 gap-6 mb-8' },
+              React.createElement('div', { className: 'bg-white rounded-xl shadow-lg p-8 border border-gray-200 hover:shadow-xl transition-all' },
+                React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+                  React.createElement('h3', { className: 'text-2xl font-bold text-gray-900' }, 'Modalità Studio'),
+                  React.createElement('span', { className: 'px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold' }, 'CONSIGLIATO')
+                ),
+                React.createElement('p', { className: 'text-gray-600 mb-6 leading-relaxed' }, 'Ricevi feedback immediato dopo ogni domanda con spiegazione dettagliata.'),
+                React.createElement('button', {
+                  onClick: () => startQuiz('study'),
+                  className: 'w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md'
+                }, 'Inizia Modalità Studio')
+              ),
+              React.createElement('div', { className: 'bg-white rounded-xl shadow-lg p-8 border border-gray-200 hover:shadow-xl transition-all' },
+                React.createElement('div', { className: 'flex items-center justify-between mb-4' },
+                  React.createElement('h3', { className: 'text-2xl font-bold text-gray-900' }, 'Modalità Esame'),
+                  React.createElement('span', { className: 'px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-semibold' }, 'SIMULAZIONE')
+                ),
+                React.createElement('p', { className: 'text-gray-600 mb-6 leading-relaxed' }, 'Simula l\'esame reale senza feedback immediato.'),
+                React.createElement('button', {
+                  onClick: () => startQuiz('exam'),
+                  className: 'w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-md'
+                }, 'Inizia Modalità Esame')
+              )
+            ),
+            React.createElement('div', { className: 'bg-white rounded-xl shadow-lg p-8 border border-gray-200' },
+              React.createElement('h3', { className: 'text-xl font-bold text-gray-900 mb-2' }, 'Carica le tue domande'),
+              React.createElement('p', { className: 'text-gray-600 mb-4' }, `Attualmente: ${questions.length} domande caricate.`),
+              React.createElement('label', { className: 'inline-flex items-center px-6 py-3 bg-gray-800 hover:bg-gray-900 text-white rounded-lg font-medium cursor-pointer transition-colors' },
+                'Seleziona File JSON',
+                React.createElement('input', {
+                  type: 'file',
+                  accept: '.json',
+                  onChange: handleFileUpload,
+                  className: 'hidden'
+                })
+              )
+            )
+          )
+        );
+      }
+
+      // SETUP VIEW
+      if (view === 'setup') {
+        const availableCategories = getAvailableCategories();
+        const maxQuestions = selectedCategories.length > 0 
+          ? questions.filter(q => selectedCategories.includes(q.category)).length 
+          : questions.length;
+
+        return React.createElement('div', { className: 'min-h-screen bg-gray-50' },
+          React.createElement('div', { className: 'bg-gradient-to-r from-blue-700 via-blue-600 to-blue-500 shadow-lg' },
+            React.createElement('div', { className: 'max-w-7xl mx-auto px-6 py-6' },
+              React.createElement('h1', { className: 'text-2xl font-bold text-white' }, 'Configurazione Quiz')
+            )
+          ),
+          React.createElement('div', { className: 'max-w-5xl mx-auto px-6 py-8' },
+            React.createElement('div', { className: 'bg-white rounded-xl shadow-lg p-6 mb-6' },
+              React.createElement('h3', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Numero di Domande'),
+              React.createElement('input', {
+                type: 'range',
+                min: '1',
+                max: Math.min(maxQuestions, 200),
+                value: numberOfQuestions,
+                onChange: (e) => setNumberOfQuestions(parseInt(e.target.value)),
+                className: 'w-full h-3 bg-blue-200 rounded-lg'
+              }),
+              React.createElement('div', { className: 'text-center mt-4' },
+                React.createElement('span', { className: 'text-4xl font-bold text-blue-600' }, numberOfQuestions)
+              )
+            ),
+            React.createElement('div', { className: 'bg-white rounded-xl shadow-lg p-6 mb-6' },
+              React.createElement('h3', { className: 'text-xl font-bold text-gray-900 mb-4' }, 'Categorie'),
+              React.createElement('div', { className: 'grid grid-cols-2 gap-3' },
+                availableCategories.map(cat =>
+                  React.createElement('button', {
+                    key: cat,
+                    onClick: () => toggleCategory(cat),
+                    className: `p-4 rounded-lg border-2 ${selectedCategories.includes(cat) ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}`
+                  }, cat)
+                )
+              )
+            ),
+            React.createElement('button', {
+              onClick: beginQuiz,
+              className: 'w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-lg'
+            }, `Inizia Quiz (${numberOfQuestions} domande)`)
+          )
+        );
+      }
+
+      return React.createElement('div', null, 'Loading...');
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(React.createElement(SSMSimulator));
+  </script>
+</body>
+</html>
